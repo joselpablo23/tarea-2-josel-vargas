@@ -1,0 +1,307 @@
+---
+title: "Tarea 02 / Josel Vargas Calderón"
+format: 
+  html:
+    toc: true
+    code-fold: false
+---
+
+# Objetivo
+
+El objetivo de la tarea 2 es aplicar los conocimientos aprendidos de los contenidos correspospienntes a conceptos básicos de R, R markdown y Quarto, Tidyverse: colección de paquetes para ciencia de datos, paquetes de R para grafícación de estadística.
+
+## Conjunto de Datos
+
+Se analizaran dos datasets proporcionados por la Caja Costarricense de Seguro Social sobre COVID-19 actualizado hasta el 30-05-2022. Se crearán tablas por medio de consultas en R y se generarán gráficos.
+
+### Carga de librerias
+
+Se cargan las librerias a ser utilizadas
+
+```{r}
+#| label: librerias
+
+# Cargamos librerias
+library(ggplot2)
+library(readr)
+library(plotly)
+library(DT)
+library(dplyr)
+library(gapminder)
+library(ggthemes)
+
+options(scipen=999)
+
+setwd("~/UCR/maestria/II Semestre 2022/progra/tarea2")
+```
+
+### Carga de CSV
+
+```{r}
+#| label: carga-csv
+
+
+# Cargamos csv de POSITIVOS
+covid_cantonal_positivos <-
+  read.csv("05_30_22_CSV_POSITIVOS.csv", sep = ";", fileEncoding = "iso-8859-1")
+
+
+# Cargamos csv de GENERALES
+general <- read_delim("30_22_CSV_GENERAL.csv", 
+                      delim = ";", escape_double = FALSE, col_types = cols(FECHA = col_date(format = "%d/%m/%Y")), 
+                      trim_ws = TRUE)
+
+```
+
+### Probamos los datasets
+
+```{r}
+#| label: prueba-csv
+
+# PROBAMOS LOS DATASETS
+
+head(general)
+head(covid_cantonal_positivos)
+```
+
+## Depuración de la data
+
+### 1. General
+
+Se procede con la selección de colummnas interesadas
+
+```{r}
+#| label: depuracion-general
+
+## PRIMERO DEPURAMOS GENERAL
+
+# Selección de columnas de interés para el análisis
+general<-
+  general[, c("FECHA",
+              "positivos",
+              "activos",
+              "RECUPERADOS",
+              "fallecidos",
+              "nue_posi",
+              "nue_falleci",
+              "salon",
+              "UCI",
+              "hom_posi",
+              "muj_posi",
+              "menor_posi",
+              "adul_posi",
+              "am_posi",
+              "nue_posi"
+  )]
+
+View(general)
+```
+
+Cambio de nombres de columnas
+
+```{r}
+#| label: cambio-nombres-general
+
+
+# Cambio de nombres de las columnas
+colnames(general) <-
+  c("fecha",
+    "positivos_general",
+    "activos",
+    "recuperados",
+    "fallecidos",
+    "nuevos_positivos",
+    "nuevos_fallecidos",
+    "salon",
+    "uci",
+    "casos_positivos_acumulados_de_hombres",
+    "casos_positivos_acumulados_de_mujeres",
+    "casos_positivos_acumulados_de_menores",
+    "casos_positivos_acumulados_de_adultos",
+    "casos_positivos_acumulados_de_adultos_mayores",
+    "casos_positivos_nuevos"
+  )
+```
+
+### 2. Positivos
+
+Primero seleccionamos las columnas de interes
+
+```{r}
+#| label: depuracion-positivos
+
+# Selección de columnas de interés para el análisis
+covid_cantonal_positivos <-
+  covid_cantonal_positivos[, c("provincia",
+                                "canton",
+                                "X30.05.2022")]
+```
+
+segundo eliminamos las filas con valores nulos
+
+```{r}
+#| label: eliminacion-na
+
+# Eliminación de filas con valores nulos
+
+covid_cantonal_positivos <-
+  covid_cantonal_positivos[!is.na(covid_cantonal_positivos$X30.05.2022),]
+```
+
+tercero eliminamos la fila de otros porque no es util para el analisis
+
+```{r}
+#| label: eliminacion-otros
+
+# Eliminación de fila con canton=="Otros"
+covid_cantonal_positivos <-
+  covid_cantonal_positivos[covid_cantonal_positivos$canton != "Otros",]
+```
+
+```{r}
+#| label: cambio-nombres
+
+# Cambio de nombre de columnas
+colnames(covid_cantonal_positivos) <-
+  c("provincia",
+    "canton",
+    "positivos")
+```
+
+## Tablas y Gráficos
+
+Una tabla que muestre datos diarios de COVID (del archivo 05_30_22_CSV_GENERAL.csv). Incluya las columnas: fecha, casos positivos acumulados de hombres (hom_posi), casos positivos acumulados de mujeres (muj_posi), casos positivos acumulados de menores (menor_posi), casos positivos acumulados de adultos (adul_posi), casos positivos acumulados de adultos mayores (am_posi) y casos positivos nuevos (nue_posi).
+
+### 1. Tabla 1
+
+```{r}
+#| label: tabla-1
+
+## primero creo un filtro con las columnas que requiero
+
+datos_diarios_de_COVID  <-
+  subset (general, select = c(fecha,
+                              casos_positivos_acumulados_de_hombres,
+                              casos_positivos_acumulados_de_mujeres,
+                              casos_positivos_acumulados_de_menores,
+                              casos_positivos_acumulados_de_adultos,
+                              casos_positivos_acumulados_de_adultos_mayores,
+                              casos_positivos_nuevos))
+
+
+datos_diarios_de_COVID  |>
+  datatable(options = list(
+    pageLength = 5,
+    language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json')
+  ))                            
+
+```
+
+### 2. Gráfico 1.
+
+Un gráfico de barras que muestre la cantidad de casos positivos nuevos por día. Es decir, debe contener una barra por cada día, desde el 2020-06-03 hasta el 2022-05-30.
+
+```{r}
+#| label: grafico-2
+# 2
+p2 <- ggplot(general, aes(x=fecha, y=nuevos_positivos)) + 
+  geom_col(position = "identity") + theme_classic() + xlab("Fecha") +
+  ylab("Nuevos Positivos") + ggtitle("Casos Positivos Nuevos Por Día")
+
+# Gráfico plotly
+ggplotly(p2, tooltip = "text") |> 
+  config(locale = 'es')
+```
+
+### 3. Grafico 2
+
+Un gráfico de líneas que muestre la evolución a través del tiempo de los casos positivos acumulados de hombres y de los casos positivos acumulados de mujeres
+
+```{r}
+#| label: grafico-3
+#| 
+# Gráfico de líneas con la evolución de los casos de COVID
+p3 <-
+  general |>
+  ggplot(aes(x = fecha, y = value, color = variable)) +
+  geom_line(aes(y = casos_positivos_acumulados_de_hombres, color = "Acumulados Hombres")) +
+  geom_line(aes(y = casos_positivos_acumulados_de_mujeres, color = "Acumulados Mujeres" )) +
+  scale_color_manual( # colores
+    "",
+    values = c(
+      "Acumulados Hombres" = "black",
+      "Acumulados Mujeres" = "red"
+      
+    )
+  ) +
+  ggtitle("Casos Acumaldos de COVID en Costa Rica em Hombres y Mujeres") +
+  xlab("Fecha") +
+  ylab("Casos") + theme_clean()
+
+# Histograma plotly
+ggplotly(p3) |> 
+  config(locale = 'es')
+
+```
+
+### 4. Grafico 3
+
+Un gráfico de líneas que muestre la evolución a través del tiempo de los casos positivos acumulados de menores, los casos positivos acumulados de adultos y de los casos positivos acumulados de adultos mayores.
+
+```{r}
+#| label: grafico-4
+
+p4 <-
+  general |>
+  ggplot(aes(x = fecha, y = value, color = variable)) +
+  geom_line(aes(y = casos_positivos_acumulados_de_menores, color = "Acumulados Menores")) +
+  geom_line(aes(y = casos_positivos_acumulados_de_adultos, color = "Acumulados Adultos" )) +
+  geom_line(aes(y = casos_positivos_acumulados_de_adultos_mayores, color = "Acumulados Adultos Mayores" )) +
+  scale_color_manual( "",values = c("Acumulados Menores" = "black",
+                                    "Acumulados Adultos" = "red",
+                                    "Acumulados Adultos Mayores" = "green")) +
+  ggtitle("Casos Acumaldos de COVID en Costa Rica em Hombres y Mujeres") +
+  xlab("Fecha") +
+  ylab("Casos") + 
+  theme_clean() + 
+  theme( plot.title = element_text(hjust = 0.5))
+
+# Histograma plotly
+ggplotly(p4) |> 
+  config(locale = 'es')
+
+```
+
+### 5. Tabla 2
+
+Una tabla que muestre la cantidad casos positivos en cantones. Incluya las columnas provincia (provincia), cantón (canton) y casos al 2022-05-30 (30/05/2022). No incluya la fila de "Otros" o la que contiene valores nulos.
+
+```{r}
+#| label: tabla-2
+
+covid_cantonal_positivos|>
+  datatable(options = list(
+    pageLength = 5,
+    language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json')
+  ))
+
+```
+
+### 6. Grafico 6
+
+Un histograma que muestre la distribución de los casos positivos en cantones.
+
+```{r}
+#| label: grafico-6
+
+# Histograma de casos positivos en cantones
+hist(
+  covid_cantonal_positivos$positivos,
+  breaks = 20,
+  col = "blue",
+  main = "Distribución de casos positivos de COVID en cantones al 2022-05-30",
+  xlab = "Casos",
+  ylab = "Frecuencia"
+)
+
+```
